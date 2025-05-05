@@ -1,7 +1,7 @@
 use tufa::export::wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 pub const INSTANCE_LAYOUT: VertexBufferLayout = VertexBufferLayout {
-    array_stride: 4 * 8,
+    array_stride: 4 * 12,
     step_mode: VertexStepMode::Instance,
     attributes: &[
         VertexAttribute {
@@ -23,6 +23,11 @@ pub const INSTANCE_LAYOUT: VertexBufferLayout = VertexBufferLayout {
             format: VertexFormat::Uint32,
             offset: 4 * 7,
             shader_location: 5,
+        },
+        VertexAttribute {
+            format: VertexFormat::Uint32,
+            offset: 4 * 8,
+            shader_location: 6,
         },
     ],
 };

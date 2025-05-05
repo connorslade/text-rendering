@@ -37,12 +37,14 @@ struct Uniform {
     viewport: Vector2<f32>,
 }
 
-#[derive(ShaderType)]
+#[derive(Debug, ShaderType)]
 struct Instance {
     position: Vector2<f32>,
     size: Vector2<f32>,
     color: Vector3<f32>,
-    glyph: u32,
+
+    glyph_start: u32,
+    glyph_length: u32,
 }
 
 const SCALE: f32 = 0.25;
@@ -57,7 +59,7 @@ fn main() -> Result<()> {
 
     let face = Face::parse(FONT, 0)?;
     let mut position = Vector2::new(0.0, 20.0);
-    for char in "Hi!".chars() {
+    for char in "hèllö".chars() {
         let glyph = face.glyph_index(char).unwrap();
         let spacing = face.glyph_hor_advance(glyph).unwrap();
 
@@ -68,11 +70,20 @@ fn main() -> Result<()> {
         instances.push(Instance {
             position: position + Vector2::new(bounds.x_min, bounds.y_min).map(|x| x as f32) * SCALE,
             size: Vector2::new(bounds.width(), bounds.height()).map(|x| x as f32) * SCALE,
-            color: Vector3::new(0.1, 0.1, 0.1),
-            glyph: 0,
+            color: Vector3::repeat(1.0),
+            glyph_start: points.len() as u32,
+            glyph_length: bèzier_points.len() as u32,
         });
 
-        points.extend(bèzier_points.clone());
+        let (min, max) = (
+            Vector2::new(bounds.x_min, bounds.y_min).map(|x| x as f32),
+            Vector2::new(bounds.x_max, bounds.y_max).map(|x| x as f32),
+        );
+        points.extend(
+            bèzier_points
+                .iter()
+                .map(|x| (x - min).component_div(&(max - min))),
+        );
         lines.extend(bèzier_points.chunks(3).flat_map(|x| {
             bèzier(x[0], x[1], x[2])
                 .into_iter()
