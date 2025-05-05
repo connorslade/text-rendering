@@ -1,10 +1,10 @@
 use anyhow::Result;
 use encase::ShaderType;
+use itertools::Itertools;
 use ttf_parser::{Face, OutlineBuilder};
 use tufa::{
     bindings::{mutability::Immutable, IndexBuffer, UniformBuffer, VertexBuffer},
     export::{
-        egui::Context,
         nalgebra::{Vector2, Vector3, Vector4},
         wgpu::{
             include_wgsl, PrimitiveTopology, RenderPass, ShaderStages, VertexAttribute,
@@ -92,8 +92,8 @@ impl OutlineBuilder for BèzierBuilder {
     }
 
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        let control = Vector2::new(x, y);
-        let end = Vector2::new(x1, y1);
+        let control = Vector2::new(x1, y1);
+        let end = Vector2::new(x, y);
 
         self.points.push(self.position);
         self.points.push(control);
@@ -122,17 +122,18 @@ fn main() -> Result<()> {
         ),
         0,
     )?;
-    let glyph = face.glyph_index('A').unwrap();
+    let glyph = face.glyph_index('m').unwrap();
     let bounds = face.glyph_bounding_box(glyph).unwrap();
 
     let mut builder = BèzierBuilder::default();
     face.outline_glyph(glyph, &mut builder).unwrap();
+    let bèzier_points = builder.into_inner();
 
     let gpu = Gpu::new()?;
 
     let uniform = gpu.create_uniform(&Uniform::default());
 
-    let points = gpu.create_storage::<_, Immutable>(&builder.into_inner());
+    let points = gpu.create_storage::<_, Immutable>(&bèzier_points);
     let instances = gpu.create_vertex(&vec![Instance {
         position: Vector2::new(0.0, 0.0),
         size: Vector2::new(bounds.width(), bounds.height()).map(|x| x as f32) * 0.1,
@@ -146,11 +147,20 @@ fn main() -> Result<()> {
         .bind(&points, ShaderStages::VERTEX_FRAGMENT)
         .finish();
 
-    let lines = gpu.create_vertex(&vec![
-        Vertex::new(Vector4::new(0.0, 0.0, 0.0, 1.0), Vector2::zeros()),
-        Vertex::new(Vector4::new(200.0, 100.0, 0.0, 1.0), Vector2::zeros()),
-    ]);
-    let line_index = gpu.create_index(&vec![0, 1]);
+    let lines = bèzier_points
+        .chunks(3)
+        .flat_map(|x| bèzier(x[0], x[1], x[2]))
+        .tuple_windows()
+        .flat_map(|(a, b)| {
+            [
+                Vertex::new(Vector4::new(a.x, a.y, 1.0, 1.0), Vector2::zeros()),
+                Vertex::new(Vector4::new(b.x, b.y, 1.0, 1.0), Vector2::zeros()),
+            ]
+        })
+        .collect::<Vec<_>>();
+    let line_count = lines.len() as u32;
+    let lines = gpu.create_vertex(&lines);
+    let line_index = gpu.create_index(&(0..line_count).collect::<Vec<_>>());
     let line = gpu
         .render_pipeline(include_wgsl!("shaders/line.wgsl"))
         .bind(&uniform, ShaderStages::VERTEX_FRAGMENT)
@@ -169,7 +179,7 @@ fn main() -> Result<()> {
             line,
             lines,
             line_index,
-            line_count: 2,
+            line_count,
         },
     )
     .run()?;
@@ -183,8 +193,8 @@ impl Interactive for App {
         let viewport = Vector2::new(inner_size.width, inner_size.height).map(|x| x as f32);
         self.uniform.upload(&Uniform { viewport });
 
-        self.render
-            .instance_quad(render_pass, &self.instances, 0..self.glyph_count);
+        // self.render
+        //     .instance_quad(render_pass, &self.instances, 0..self.glyph_count);
         self.line.draw(
             render_pass,
             &self.line_index,
@@ -193,17 +203,31 @@ impl Interactive for App {
         );
     }
 
-    fn ui(&mut self, gcx: GraphicsCtx, ctx: &Context) {
-        let window = gcx.window;
-        let height = window.inner_size().height as f32 / window.scale_factor() as f32;
-        let pointer = ctx.input(|i| i.pointer.latest_pos().unwrap_or_default());
+    // fn ui(&mut self, gcx: GraphicsCtx, ctx: &Context) {
+    //     let window = gcx.window;
+    //     let height = window.inner_size().height as f32 / window.scale_factor() as f32;
+    //     let pointer = ctx.input(|i| i.pointer.latest_pos().unwrap_or_default());
 
-        self.lines.upload(&vec![
-            Vertex::new(Vector4::new(0.0, 0.0, 0.0, 1.0), Vector2::zeros()),
-            Vertex::new(
-                Vector4::new(pointer.x, height - pointer.y, 0.0, 1.0),
-                Vector2::zeros(),
-            ),
-        ]);
+    //     self.lines.upload(&vec![
+    //         Vertex::new(Vector4::new(0.0, 0.0, 0.0, 1.0), Vector2::zeros()),
+    //         Vertex::new(
+    //             Vector4::new(pointer.x, height - pointer.y, 0.0, 1.0),
+    //             Vector2::zeros(),
+    //         ),
+    //     ]);
+    // }
+}
+
+fn bèzier(a: Vector2<f32>, b: Vector2<f32>, c: Vector2<f32>) -> Vec<Vector2<f32>> {
+    let mut points = Vec::new();
+    let steps = 100;
+
+    for i in 0..=steps {
+        let t = i as f32 / steps as f32;
+        let x = (1.0 - t).powi(2) * a.x + 2.0 * (1.0 - t) * t * b.x + t.powi(2) * c.x;
+        let y = (1.0 - t).powi(2) * a.y + 2.0 * (1.0 - t) * t * b.y + t.powi(2) * c.y;
+        points.push(Vector2::new(x, y));
     }
+
+    points
 }
