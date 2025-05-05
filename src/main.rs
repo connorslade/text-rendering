@@ -45,29 +45,56 @@ struct Instance {
     glyph: u32,
 }
 
+const SCALE: f32 = 0.25;
 const FONT: &[u8] = include_bytes!(
     "/home/connorslade/Downloads/JetBrainsMono-2.304/fonts/ttf/JetBrainsMono-Regular.ttf"
 );
 
 fn main() -> Result<()> {
-    let face = Face::parse(FONT, 0)?;
-    let glyph = face.glyph_index('m').unwrap();
-    let bounds = face.glyph_bounding_box(glyph).unwrap();
+    let mut instances = Vec::new();
+    let mut points = Vec::new();
+    let mut lines = Vec::new();
 
-    let mut builder = BèzierBuilder::default();
-    face.outline_glyph(glyph, &mut builder).unwrap();
-    let bèzier_points = builder.into_inner();
+    let face = Face::parse(FONT, 0)?;
+    let mut position = Vector2::new(0.0, 20.0);
+    for char in "Hi!".chars() {
+        let glyph = face.glyph_index(char).unwrap();
+        let spacing = face.glyph_hor_advance(glyph).unwrap();
+
+        let mut builder = BèzierBuilder::default();
+        let bounds = face.outline_glyph(glyph, &mut builder).unwrap();
+        let bèzier_points = builder.into_inner();
+
+        instances.push(Instance {
+            position: position + Vector2::new(bounds.x_min, bounds.y_min).map(|x| x as f32) * SCALE,
+            size: Vector2::new(bounds.width(), bounds.height()).map(|x| x as f32) * SCALE,
+            color: Vector3::new(0.1, 0.1, 0.1),
+            glyph: 0,
+        });
+
+        points.extend(bèzier_points.clone());
+        lines.extend(bèzier_points.chunks(3).flat_map(|x| {
+            bèzier(x[0], x[1], x[2])
+                .into_iter()
+                .tuple_windows()
+                .flat_map(|(a, b)| {
+                    [a, b]
+                        .map(|x| x * SCALE + position)
+                        .map(|x| Vertex::new(Vector4::new(x.x, x.y, 1.0, 1.0), Vector2::zeros()))
+                })
+        }));
+
+        position += Vector2::x() * spacing as f32 * SCALE;
+    }
+
+    let line_count = lines.len() as u32;
 
     let gpu = Gpu::new()?;
     let uniform = gpu.create_uniform(&Uniform::default());
 
-    let points = gpu.create_storage::<_, Immutable>(&bèzier_points);
-    let instances = gpu.create_vertex(&[Instance {
-        position: Vector2::new(0.0, 0.0),
-        size: Vector2::new(bounds.width(), bounds.height()).map(|x| x as f32) * 0.1,
-        color: Vector3::new(1.0, 0.0, 0.0),
-        glyph: 0,
-    }]);
+    let glyph_count = instances.len() as u32;
+    let points = gpu.create_storage::<_, Immutable>(&points);
+    let instances = gpu.create_vertex(&instances);
     let render = gpu
         .render_pipeline(include_wgsl!("shaders/render.wgsl"))
         .instance_layout(INSTANCE_LAYOUT)
@@ -75,18 +102,6 @@ fn main() -> Result<()> {
         .bind(&points, ShaderStages::VERTEX_FRAGMENT)
         .finish();
 
-    let lines = bèzier_points
-        .chunks(3)
-        .flat_map(|x| bèzier(x[0], x[1], x[2]))
-        .tuple_windows()
-        .flat_map(|(a, b)| {
-            [
-                Vertex::new(Vector4::new(a.x, a.y, 1.0, 1.0), Vector2::zeros()),
-                Vertex::new(Vector4::new(b.x, b.y, 1.0, 1.0), Vector2::zeros()),
-            ]
-        })
-        .collect::<Vec<_>>();
-    let line_count = lines.len() as u32;
     let lines = gpu.create_vertex(&lines);
     let line_index = gpu.create_index(&(0..line_count).collect::<Vec<_>>());
     let line = gpu
@@ -102,7 +117,7 @@ fn main() -> Result<()> {
 
             render,
             instances,
-            glyph_count: 1,
+            glyph_count,
 
             line,
             lines,

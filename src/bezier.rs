@@ -48,7 +48,7 @@ impl BèzierBuilder {
 
 pub fn bèzier(a: Vector2<f32>, b: Vector2<f32>, c: Vector2<f32>) -> Vec<Vector2<f32>> {
     let mut points = Vec::new();
-    let steps = 100;
+    let steps = 10;
 
     for i in 0..=steps {
         let t = i as f32 / steps as f32;
