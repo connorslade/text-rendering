@@ -27,7 +27,7 @@ fn vert(
     model: VertexInput,
     instance: Instance
 ) -> VertexOutput {
-    let pos = (model.pos.xy * instance.size + instance.position + instance.size) / ctx.viewport * 2.0 - vec2(1.0);
+    let pos = (model.pos.xy * instance.size + instance.position + instance.size) / ctx.viewport * 4.0 - vec2(1.0);
     return VertexOutput(vec4(pos, 0.0, 1.0), model.uv, instance.color);
 }
 

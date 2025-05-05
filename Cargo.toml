@@ -7,4 +7,5 @@ edition = "2021"
 anyhow = "1.0.98"
 bytemuck = "1.23.0"
 encase = { version = "0.10.0", features = ["nalgebra"] }
+ttf-parser = "0.25.1"
 tufa = { version = "0.1.2", features = ["interactive"] }
