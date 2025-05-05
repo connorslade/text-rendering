@@ -1,0 +1,10 @@
+[package]
+name = "text-rendering"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.98"
+bytemuck = "1.23.0"
+encase = { version = "0.10.0", features = ["nalgebra"] }
+tufa = { version = "0.1.2", features = ["interactive"] }
