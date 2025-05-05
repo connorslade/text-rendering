@@ -149,11 +149,11 @@ impl Interactive for App {
 
         self.render
             .instance_quad(render_pass, &self.instances, 0..self.glyph_count);
-        self.line.draw(
-            render_pass,
-            &self.line_index,
-            &self.lines,
-            0..self.line_count,
-        );
+        // self.line.draw(
+        //     render_pass,
+        //     &self.line_index,
+        //     &self.lines,
+        //     0..self.line_count,
+        // );
     }
 }

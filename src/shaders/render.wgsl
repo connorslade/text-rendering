@@ -2,6 +2,7 @@
 @group(0) @binding(1) var<storage, read> points: array<vec2f>;
 
 const ε: f32 = 0.00001;
+const samples: vec2u = vec2(3);
 
 struct Uniform {
     viewport: vec2f,
@@ -41,29 +42,63 @@ fn vert(
 
 @fragment
 fn frag(in: VertexOutput) -> @location(0) vec4f {
+    let px = dpdx(in.uv.x) / f32(samples.x);
+    let py = dpdy(in.uv.y) / f32(samples.y);
+
     var hits = 0;
-    let end = in.glyph_start + in.glyph_length;
-    for (var i = in.glyph_start; i < end; i += 3) {
+    for (var x = 0u; x < samples.x; x++) {
+        for (var y = 0u; y < samples.y; y++) {
+            let δ = px * f32(x) + py * f32(y);
+            hits += i32(sample(in.glyph_start, in.glyph_length, in.uv + δ));
+        }
+    }
+
+    let brightness = f32(hits) / f32(samples.x * samples.y);
+    return vec4(in.color * brightness, 1.0);
+}
+
+fn sample(start: u32, length: u32, uv: vec2f) -> bool {
+    var hits = 0;
+    let end = start + length;
+    for (var i = start; i < end; i += 3) {
         let a = points[i];
         let b = points[i + 1];
         let c = points[i + 2];
 
-        hits += i32(ray_line_intersection(a, b, in.uv));
-        hits += i32(ray_line_intersection(b, c, in.uv));
+        ray_bézier_intersection(&hits, a, b, c, uv);
     }
 
-    let in_glyph = hits % 2 == 1;
-    return vec4(in.color * f32(in_glyph), 1.0);
+    return hits % 2 == 1;
 }
 
-fn ray_line_intersection(a: vec2f, b: vec2f, t: vec2f) -> bool {
-    if abs(a.x - b.x) < ε {
-        return b.x >= t.x && ((t.y >= a.y && t.y <= b.y) || (t.y >= b.y && t.y <= a.y));
+// (a - 2 b + c) t^2 + (2b - 2a) t + a
+// a = a - 2 b + c; b = 2 (b - a); c = a
+//
+// -b±√(b²-4ac)/2a
+fn ray_bézier_intersection(hits: ptr<function, i32>, p1: vec2f, p2: vec2f, p3: vec2f, t: vec2f) {
+    let a = p1.y - 2.0 * p2.y + p3.y;
+    let b = 2.0 * (p2.y - p1.y);
+    let c = p1.y - t.y;
+
+    if abs(a) < ε {
+        *hits += i32(p1.x >= t.x && max(p1.y, p3.y) >= t.y && min(p1.y, p3.y) <= t.y);
+        return;
     }
 
-    let slope = (a.y - b.y) / (a.x - b.x);
-    let offset = a.y - slope * a.x;
-    let x = (t.y - offset) / slope;
+    let Δ = b * b - 4.0 * a * c;
+    if Δ < 0.0 { return; }
+    let δ = sqrt(Δ);
 
-    return x >= t.x && ((x >= a.x && x <= b.x) || (x <= a.x && x >= b.x));
+    let t1 = (-b + δ) / (2.0 * a);
+    let t2 = (-b - δ) / (2.0 * a);
+
+    let x1 = quadratic_bézier(p1, p2, p3, t1).x;
+    let x2 = quadratic_bézier(p1, p2, p3, t2).x;
+
+    *hits += i32(t1 > 0.0 && t1 < 1.0 && x1 >= t.x);
+    *hits += i32(t2 >= 0.0 && t2 <= 1.0 && x2 >= t.x);
+}
+
+fn quadratic_bézier(p1: vec2f, p2: vec2f, p3: vec2f, t: f32) -> vec2f {
+    return (p1 - 2.0 * p2 + p3) * t * t + (p2 - p1) * 2.0 * t + p1;
 }
