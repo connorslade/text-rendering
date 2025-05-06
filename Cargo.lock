@@ -1658,6 +1658,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordered-float"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2c1f9f56e534ac6a9b8a4600bdf0f530fb393b5f393e7b4d03489c3cf0c3f01"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "owned_ttf_parser"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2133,7 +2142,8 @@ dependencies = [
  "bytemuck",
  "encase",
  "itertools",
- "ttf-parser",
+ "ordered-float 5.0.0",
+ "owned_ttf_parser",
  "tufa",
 ]
 
@@ -2265,8 +2275,6 @@ checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 [[package]]
 name = "tufa"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfbc177eabe5fd89a209559bbdb2852d170559a7c418172522c32aa99f6da501"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -2679,7 +2687,7 @@ dependencies = [
  "ndk-sys 0.5.0+25.2.9519653",
  "objc",
  "once_cell",
- "ordered-float",
+ "ordered-float 4.6.0",
  "parking_lot",
  "profiling",
  "range-alloc",

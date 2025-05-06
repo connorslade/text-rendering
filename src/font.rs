@@ -1,4 +1,4 @@
-use ttf_parser::OutlineBuilder;
+use owned_ttf_parser::OutlineBuilder;
 use tufa::export::nalgebra::Vector2;
 
 #[derive(Default)]
@@ -44,18 +44,4 @@ impl BèzierBuilder {
     pub fn into_inner(self) -> Vec<Vector2<f32>> {
         self.points
     }
-}
-
-pub fn bèzier(a: Vector2<f32>, b: Vector2<f32>, c: Vector2<f32>) -> Vec<Vector2<f32>> {
-    let mut points = Vec::new();
-    let steps = 10;
-
-    for i in 0..=steps {
-        let t = i as f32 / steps as f32;
-        let x = (1.0 - t).powi(2) * a.x + 2.0 * (1.0 - t) * t * b.x + t.powi(2) * c.x;
-        let y = (1.0 - t).powi(2) * a.y + 2.0 * (1.0 - t) * t * b.y + t.powi(2) * c.y;
-        points.push(Vector2::new(x, y));
-    }
-
-    points
 }

@@ -2,7 +2,6 @@
 @group(0) @binding(1) var<storage, read> points: array<vec2f>;
 
 const ε: f32 = 0.00001;
-const samples: vec2u = vec2(3);
 
 struct Uniform {
     viewport: vec2f,
@@ -42,18 +41,7 @@ fn vert(
 
 @fragment
 fn frag(in: VertexOutput) -> @location(0) vec4f {
-    let px = dpdx(in.uv.x) / f32(samples.x);
-    let py = dpdy(in.uv.y) / f32(samples.y);
-
-    var hits = 0;
-    for (var x = 0u; x < samples.x; x++) {
-        for (var y = 0u; y < samples.y; y++) {
-            let δ = px * f32(x) + py * f32(y);
-            hits += i32(sample(in.glyph_start, in.glyph_length, in.uv + δ));
-        }
-    }
-
-    let brightness = f32(hits) / f32(samples.x * samples.y);
+    let brightness = f32(sample(in.glyph_start, in.glyph_length, in.uv));
     return vec4(in.color * brightness, 1.0);
 }
 
@@ -71,17 +59,21 @@ fn sample(start: u32, length: u32, uv: vec2f) -> bool {
     return hits % 2 == 1;
 }
 
-// (a - 2 b + c) t^2 + (2b - 2a) t + a
-// a = a - 2 b + c; b = 2 (b - a); c = a
-//
-// -b±√(b²-4ac)/2a
 fn ray_bézier_intersection(hits: ptr<function, i32>, p1: vec2f, p2: vec2f, p3: vec2f, t: vec2f) {
+    // (a - 2 b + c) t^2 + (2b - 2a) t + a
+    // t = -b±√(b²-4ac)/2a
+
     let a = p1.y - 2.0 * p2.y + p3.y;
     let b = 2.0 * (p2.y - p1.y);
     let c = p1.y - t.y;
 
     if abs(a) < ε {
-        *hits += i32(p1.x >= t.x && max(p1.y, p3.y) >= t.y && min(p1.y, p3.y) <= t.y);
+        if abs(b) < ε {
+            *hits += i32(p1.x >= t.x && p1.y == t.y);
+        } else {
+            let t0 = -c / b;
+            *hits += i32(t0 >= 0.0 && t0 <= 1.0 && mix(p1.x, p3.x, t0) >= t.x);
+        }
         return;
     }
 
