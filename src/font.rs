@@ -26,7 +26,7 @@ impl App {
                 continue;
             }
 
-            let glyph = face.glyph_index(char).unwrap();
+            let glyph = face.glyph_index(char).unwrap_or_default();
             let spacing = face.glyph_hor_advance(glyph).unwrap();
 
             if char == ' ' {

@@ -2275,6 +2275,7 @@ checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 [[package]]
 name = "tufa"
 version = "0.1.2"
+source = "git+https://github.com/connorslade/tufa#5fd5baddf46911e6f9e7e964aa5b12b6a0def027"
 dependencies = [
  "anyhow",
  "bytemuck",

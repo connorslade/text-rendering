@@ -1,7 +1,7 @@
 @group(0) @binding(0) var<uniform> ctx: Uniform;
 @group(0) @binding(1) var<storage, read> points: array<vec2f>;
 
-const ε: f32 = 0.00001;
+const ε: f32 = 0.001;
 
 struct Uniform {
     viewport: vec2f,
@@ -74,21 +74,20 @@ fn ray_bézier_intersection(hits: ptr<function, i32>, p1: vec2f, p2: vec2f, p3: 
             let t0 = -c / b;
             *hits += i32(t0 >= 0.0 && t0 <= 1.0 && mix(p1.x, p3.x, t0) >= t.x);
         }
-        return;
-    }
+    } else {
+        let Δ = b * b - 4.0 * a * c;
+        if Δ < 0.0 { return; }
+        let δ = sqrt(Δ);
 
-    let Δ = b * b - 4.0 * a * c;
-    if Δ < 0.0 { return; }
-    let δ = sqrt(Δ);
+        let t1 = (-b + δ) / (2.0 * a);
+        let t2 = (-b - δ) / (2.0 * a);
 
-    let t1 = (-b + δ) / (2.0 * a);
-    let t2 = (-b - δ) / (2.0 * a);
+        let x1 = quadratic_bézier(p1, p2, p3, saturate(t1)).x;
+        let x2 = quadratic_bézier(p1, p2, p3, saturate(t2)).x;
 
-    let x1 = quadratic_bézier(p1, p2, p3, t1).x;
-    let x2 = quadratic_bézier(p1, p2, p3, t2).x;
-
-    *hits += i32(t1 > 0.0 && t1 < 1.0 && x1 >= t.x);
-    *hits += i32(t2 >= 0.0 && t2 <= 1.0 && x2 >= t.x);
+        *hits += i32(t1 >= -ε && t1 < 1.0 + ε && x1 >= t.x);
+        *hits += i32(t2 >= -ε && t2 < 1.0 + ε && x2 >= t.x);
+   }
 }
 
 fn quadratic_bézier(p1: vec2f, p2: vec2f, p3: vec2f, t: f32) -> vec2f {

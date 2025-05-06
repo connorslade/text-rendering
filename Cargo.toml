@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# tufa = { version = "0.1.2", features = ["interactive"] }
+tufa = { git = "https://github.com/connorslade/tufa", features = ["interactive"] }
+
 anyhow = "1.0.98"
 bytemuck = "1.23.0"
 encase = { version = "0.10.0", features = ["nalgebra"] }
 itertools = "0.14.0"
 ordered-float = "5.0.0"
 owned_ttf_parser = "0.25.0"
-# tufa = { version = "0.1.2", features = ["interactive"] }
-tufa = { path = "../tufa", features = ["interactive"] }
