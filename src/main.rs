@@ -1,9 +1,9 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::hash::{Hash, Hasher};
 
 use anyhow::Result;
 use encase::ShaderType;
 use ordered_float::OrderedFloat;
-use owned_ttf_parser::{AsFaceRef, OwnedFace};
+use owned_ttf_parser::OwnedFace;
 use tufa::{
     bindings::buffer::{mutability::Immutable, StorageBuffer, UniformBuffer, VertexBuffer},
     export::{
@@ -17,15 +17,9 @@ use tufa::{
     pipeline::render::RenderPipeline,
 };
 
-mod consts;
 mod font;
-use consts::INSTANCE_LAYOUT;
-use font::BèzierBuilder;
-
-struct Ui {
-    text: String,
-    size: f32,
-}
+mod misc;
+use misc::{hash, INSTANCE_LAYOUT};
 
 struct App {
     face: OwnedFace,
@@ -36,6 +30,11 @@ struct App {
     instances: VertexBuffer<Instance>,
     points: StorageBuffer<Vec<Vector2<f32>>, Immutable>,
     glyph_count: u32,
+}
+
+struct Ui {
+    text: String,
+    size: f32,
 }
 
 #[derive(ShaderType, Default)]
@@ -75,10 +74,7 @@ fn main() -> Result<()> {
         WindowAttributes::default().with_title("Text Rendering"),
         App {
             face,
-            ui: Ui {
-                text: String::new(),
-                size: 0.3,
-            },
+            ui: Ui::default(),
 
             uniform,
             render,
@@ -114,66 +110,7 @@ impl Interactive for App {
                 });
             });
 
-        if old_hash != hash(&self.ui) {
-            self.rebuild();
-        }
-    }
-}
-
-impl App {
-    fn rebuild(&mut self) {
-        let (mut instances, mut points) = (Vec::new(), Vec::new());
-
-        let face = self.face.as_face_ref();
-        let ui = &self.ui;
-
-        let lines = self.ui.text.lines().count() - 1;
-        let mut position = Vector2::new(0.0, lines as f32 * face.height() as f32 * ui.size);
-
-        for char in ui.text.chars() {
-            if char == '\n' {
-                position.x = 0.0;
-                position.y -= face.height() as f32 * ui.size;
-                continue;
-            }
-
-            let glyph = face.glyph_index(char).unwrap();
-            let spacing = face.glyph_hor_advance(glyph).unwrap();
-
-            if char == ' ' {
-                position.x += spacing as f32 * ui.size;
-                continue;
-            }
-
-            let mut builder = BèzierBuilder::default();
-            let bounds = face.outline_glyph(glyph, &mut builder).unwrap();
-            let bèzier_points = builder.into_inner();
-
-            instances.push(Instance {
-                position: position
-                    + Vector2::new(bounds.x_min, bounds.y_min).map(|x| x as f32) * ui.size,
-                size: Vector2::new(bounds.width(), bounds.height()).map(|x| x as f32) * ui.size,
-                color: Vector3::repeat(1.0),
-                glyph_start: points.len() as u32,
-                glyph_length: bèzier_points.len() as u32,
-            });
-
-            let (min, max) = (
-                Vector2::new(bounds.x_min, bounds.y_min).map(|x| x as f32),
-                Vector2::new(bounds.x_max, bounds.y_max).map(|x| x as f32),
-            );
-            points.extend(
-                bèzier_points
-                    .iter()
-                    .map(|x| (x - min).component_div(&(max - min))),
-            );
-
-            position.x += spacing as f32 * ui.size;
-        }
-
-        self.glyph_count = instances.len() as u32;
-        self.instances.upload(&instances);
-        self.points.upload(&points);
+        (old_hash != hash(&self.ui)).then(|| self.rebuild());
     }
 }
 
@@ -184,8 +121,11 @@ impl Hash for Ui {
     }
 }
 
-fn hash<T: Hash>(t: &T) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    t.hash(&mut hasher);
-    hasher.finish()
+impl Default for Ui {
+    fn default() -> Self {
+        Self {
+            text: String::new(),
+            size: 0.3,
+        }
+    }
 }

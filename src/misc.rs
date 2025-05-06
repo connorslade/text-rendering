@@ -1,3 +1,5 @@
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 use tufa::export::wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 pub const INSTANCE_LAYOUT: VertexBufferLayout = VertexBufferLayout {
@@ -31,3 +33,9 @@ pub const INSTANCE_LAYOUT: VertexBufferLayout = VertexBufferLayout {
         },
     ],
 };
+
+pub fn hash<T: Hash>(t: &T) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    t.hash(&mut hasher);
+    hasher.finish()
+}
