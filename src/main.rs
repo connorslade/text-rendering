@@ -7,13 +7,13 @@ use owned_ttf_parser::OwnedFace;
 use tufa::{
     bindings::buffer::{mutability::Immutable, StorageBuffer, UniformBuffer, VertexBuffer},
     export::{
-        egui::{Context, Slider, TextEdit, Window},
+        egui::{self, Context, Slider, TextEdit, Window},
         nalgebra::{Vector2, Vector3},
         wgpu::{include_wgsl, RenderPass, ShaderStages},
         winit::window::WindowAttributes,
     },
     gpu::Gpu,
-    interactive::{GraphicsCtx, Interactive},
+    interactive::{ui::vec2_dragger, GraphicsCtx, Interactive},
     pipeline::render::RenderPipeline,
 };
 
@@ -35,11 +35,15 @@ struct App {
 struct Ui {
     text: String,
     size: f32,
+    color: [f32; 3],
+
+    pan: Vector2<f32>,
 }
 
 #[derive(ShaderType, Default)]
 struct Uniform {
     viewport: Vector2<f32>,
+    pan: Vector2<f32>,
 }
 
 #[derive(Debug, ShaderType)]
@@ -90,22 +94,53 @@ impl Interactive for App {
     fn render(&mut self, gcx: GraphicsCtx, render_pass: &mut RenderPass) {
         let inner_size = gcx.window.inner_size();
         let viewport = Vector2::new(inner_size.width, inner_size.height).map(|x| x as f32);
-        self.uniform.upload(&Uniform { viewport });
+        self.uniform.upload(&Uniform {
+            viewport,
+            pan: self.ui.pan,
+        });
 
         self.render
             .instance_quad(render_pass, &self.instances, 0..self.glyph_count);
     }
 
-    fn ui(&mut self, _gcx: GraphicsCtx, ctx: &Context) {
+    fn ui(&mut self, gcx: GraphicsCtx, ctx: &Context) {
         let old_hash = hash(&self.ui);
+
+        let dragging_viewport = ctx.dragged_id().is_none() && !ctx.is_pointer_over_area();
+        let scale_factor = gcx.window.scale_factor() as f32;
+        ctx.input(|input| {
+            if input.pointer.any_down() && dragging_viewport {
+                let delta = input.pointer.delta() * scale_factor;
+                self.ui.pan += Vector2::new(delta.x, -delta.y);
+            }
+        });
+
         Window::new("Text Rendering")
             .default_width(200.0)
             .show(ctx, |ui| {
-                ui.add(TextEdit::multiline(&mut self.ui.text).desired_width(200.0));
-                ui.horizontal(|ui| {
-                    ui.add(Slider::new(&mut self.ui.size, 0.0..=1.0));
-                    ui.label("Font Size");
-                });
+                ui.add(
+                    TextEdit::multiline(&mut self.ui.text)
+                        .desired_width(f32::INFINITY)
+                        .desired_rows(3),
+                );
+
+                egui::Grid::new("settings_grid")
+                    .num_columns(2)
+                    .spacing([40.0, 4.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label("Viewport Pan");
+                        vec2_dragger(ui, &mut self.ui.pan, |x| x);
+                        ui.end_row();
+
+                        ui.label("Font Size");
+                        ui.add(Slider::new(&mut self.ui.size, 0.0..=1.0));
+                        ui.end_row();
+
+                        ui.label("Text Color");
+                        ui.color_edit_button_rgb(&mut self.ui.color);
+                        ui.end_row();
+                    });
             });
 
         (old_hash != hash(&self.ui)).then(|| self.rebuild());
@@ -116,6 +151,8 @@ impl Hash for Ui {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.text.hash(state);
         OrderedFloat(self.size).hash(state);
+        self.color.map(OrderedFloat).hash(state);
+        self.pan.map(OrderedFloat).hash(state);
     }
 }
 
@@ -124,6 +161,9 @@ impl Default for Ui {
         Self {
             text: String::new(),
             size: 0.3,
+            color: [1.0; 3],
+
+            pan: Vector2::zeros(),
         }
     }
 }

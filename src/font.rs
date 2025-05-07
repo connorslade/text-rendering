@@ -1,5 +1,5 @@
 use owned_ttf_parser::{AsFaceRef, OutlineBuilder};
-use tufa::export::nalgebra::{Vector2, Vector3};
+use tufa::export::nalgebra::Vector2;
 
 use crate::{App, Instance};
 
@@ -42,7 +42,7 @@ impl App {
                 position: position
                     + Vector2::new(bounds.x_min, bounds.y_min).map(|x| x as f32) * ui.size,
                 size: Vector2::new(bounds.width(), bounds.height()).map(|x| x as f32) * ui.size,
-                color: Vector3::repeat(1.0),
+                color: self.ui.color.into(),
                 glyph_start: points.len() as u32,
                 glyph_length: bèzier_points.len() as u32,
             });

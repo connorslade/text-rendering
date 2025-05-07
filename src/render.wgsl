@@ -6,6 +6,7 @@ const ι: f32 = 3.40282347e38;
 
 struct Uniform {
     viewport: vec2f,
+    pan: vec2f
 }
 
 struct Instance {
@@ -36,7 +37,7 @@ fn vert(
     model: VertexInput,
     instance: Instance
 ) -> VertexOutput {
-    let pos = (model.pos.xy * instance.size + instance.position * 2.0 + instance.size) / ctx.viewport * 2.0 - vec2(1.0);
+    let pos = (model.pos.xy * instance.size + instance.position * 2.0 + instance.size + ctx.pan) / ctx.viewport * 2.0 - vec2(1.0);
     return VertexOutput(vec4(pos, 0.0, 1.0), model.uv, instance.color, instance.glyph_start, instance.glyph_length);
 }
 
