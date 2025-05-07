@@ -52,9 +52,7 @@ struct Instance {
     glyph_length: u32,
 }
 
-const FONT: &[u8] = include_bytes!(
-    "/home/connorslade/Downloads/JetBrainsMono-2.304/fonts/ttf/JetBrainsMono-Regular.ttf"
-);
+const FONT: &[u8] = include_bytes!("/opt/wine-staging/share/wine/fonts/times.ttf");
 
 fn main() -> Result<()> {
     let gpu = Gpu::new()?;
