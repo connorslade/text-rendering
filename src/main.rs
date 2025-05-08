@@ -38,12 +38,16 @@ struct Ui {
     color: [f32; 3],
 
     pan: Vector2<f32>,
+    masa: u32,
+    show_quads: bool,
 }
 
 #[derive(ShaderType, Default)]
 struct Uniform {
     viewport: Vector2<f32>,
     pan: Vector2<f32>,
+    masa: u32,
+    flags: u32,
 }
 
 #[derive(Debug, ShaderType)]
@@ -56,7 +60,7 @@ struct Instance {
     glyph_length: u32,
 }
 
-const FONT: &[u8] = include_bytes!("/opt/wine-staging/share/wine/fonts/times.ttf");
+const FONT: &[u8] = include_bytes!("/usr/share/fonts/google-noto-vf/NotoSerif[wght].ttf");
 
 fn main() -> Result<()> {
     let gpu = Gpu::new()?;
@@ -97,6 +101,8 @@ impl Interactive for App {
         self.uniform.upload(&Uniform {
             viewport,
             pan: self.ui.pan,
+            masa: self.ui.masa,
+            flags: self.ui.show_quads as u32,
         });
 
         self.render
@@ -133,17 +139,24 @@ impl Interactive for App {
                         vec2_dragger(ui, &mut self.ui.pan, |x| x);
                         ui.end_row();
 
+                        ui.label("Multi-sampling");
+                        ui.add(Slider::new(&mut self.ui.masa, 1..=4));
+                        ui.end_row();
+
                         ui.label("Font Size");
-                        ui.add(Slider::new(&mut self.ui.size, 0.0..=1.0));
+                        ui.add(Slider::new(&mut self.ui.size, 0.0..=96.0));
                         ui.end_row();
 
                         ui.label("Text Color");
-                        ui.color_edit_button_rgb(&mut self.ui.color);
+                        ui.horizontal(|ui| {
+                            ui.color_edit_button_rgb(&mut self.ui.color);
+                            ui.checkbox(&mut self.ui.show_quads, "");
+                        });
                         ui.end_row();
                     });
             });
 
-        (old_hash != hash(&self.ui)).then(|| self.rebuild());
+        (old_hash != hash(&self.ui)).then(|| self.rebuild(scale_factor));
     }
 }
 
@@ -160,10 +173,12 @@ impl Default for Ui {
     fn default() -> Self {
         Self {
             text: String::new(),
-            size: 0.3,
+            size: 24.0,
             color: [1.0; 3],
 
             pan: Vector2::zeros(),
+            masa: 2,
+            show_quads: false,
         }
     }
 }

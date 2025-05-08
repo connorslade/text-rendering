@@ -6,7 +6,9 @@ const ι: f32 = 3.40282347e38;
 
 struct Uniform {
     viewport: vec2f,
-    pan: vec2f
+    pan: vec2f,
+    masa: u32,
+    flags: u32
 }
 
 struct Instance {
@@ -43,15 +45,28 @@ fn vert(
 
 @fragment
 fn frag(in: VertexOutput) -> @location(0) vec4f {
-    let brightness = f32(sample(in.glyph_start, in.glyph_length, in.uv));
-    return vec4(in.color * brightness, 1.0);
+    let dx = dpdx(in.uv.x) / f32(ctx.masa);
+    let dy = dpdy(in.uv.y) / f32(ctx.masa);
+
+    var brightness = 0.0;
+    for (var x = 0u; x < ctx.masa; x++) {
+        for (var y = 0u; y < ctx.masa; y++) {
+            let Δ = vec2(f32(x) * dx, f32(y) * dy);
+            brightness += f32(sample(in.glyph_start, in.glyph_length, in.uv + Δ));
+        }
+    }
+
+    var out = brightness / f32(ctx.masa * ctx.masa);
+    if (ctx.flags & 1) != 0 { out = max(0.25, out); }
+
+    return vec4(in.color, 1.0) * out;
 }
 
 fn sample(start: u32, length: u32, uv: vec2f) -> bool {
     var hits = 0u;
-    let end = start + length;
-
     var last = vec2(ι);
+
+    let end = start + length;
     for (var i = start; i < end; i += 3) {
         let a = points[i];
         let b = points[i + 1];

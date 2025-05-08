@@ -1,4 +1,4 @@
-use owned_ttf_parser::{AsFaceRef, OutlineBuilder};
+use owned_ttf_parser::{AsFaceRef, OutlineBuilder, Tag};
 use tufa::export::nalgebra::Vector2;
 
 use crate::{App, Instance};
@@ -10,19 +10,20 @@ pub struct BèzierBuilder {
 }
 
 impl App {
-    pub fn rebuild(&mut self) {
+    pub fn rebuild(&mut self, scale_factor: f32) {
         let (mut instances, mut points) = (Vec::new(), Vec::new());
 
         let face = self.face.as_face_ref();
         let ui = &self.ui;
+        let scale = ui.size / face.units_per_em() as f32 * scale_factor;
 
         let lines = self.ui.text.chars().filter(|&x| x == '\n').count();
-        let mut position = Vector2::new(0.0, lines as f32 * face.height() as f32 * ui.size);
+        let mut position = Vector2::new(0.0, lines as f32 * face.height() as f32 * scale);
 
         for char in ui.text.chars() {
             if char == '\n' {
                 position.x = 0.0;
-                position.y -= face.height() as f32 * ui.size;
+                position.y -= face.height() as f32 * scale;
                 continue;
             }
 
@@ -30,7 +31,7 @@ impl App {
             let spacing = face.glyph_hor_advance(glyph).unwrap();
 
             if char == ' ' {
-                position.x += spacing as f32 * ui.size;
+                position.x += spacing as f32 * scale;
                 continue;
             }
 
@@ -40,8 +41,8 @@ impl App {
 
             instances.push(Instance {
                 position: position
-                    + Vector2::new(bounds.x_min, bounds.y_min).map(|x| x as f32) * ui.size,
-                size: Vector2::new(bounds.width(), bounds.height()).map(|x| x as f32) * ui.size,
+                    + Vector2::new(bounds.x_min, bounds.y_min).map(|x| x as f32) * scale,
+                size: Vector2::new(bounds.width(), bounds.height()).map(|x| x as f32) * scale,
                 color: self.ui.color.into(),
                 glyph_start: points.len() as u32,
                 glyph_length: bèzier_points.len() as u32,
@@ -57,7 +58,7 @@ impl App {
                     .map(|x| (x - min).component_div(&(max - min))),
             );
 
-            position.x += spacing as f32 * ui.size;
+            position.x += spacing as f32 * scale;
         }
 
         self.glyph_count = instances.len() as u32;
